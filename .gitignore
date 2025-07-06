@@ -318,7 +318,7 @@ backend/sessions/
 backend/.env
 frontend-temp/
 test_*.py
-*.html
+# *.html
 generated_summary.html
 
 # Logs
