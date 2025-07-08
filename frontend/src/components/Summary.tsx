@@ -10,11 +10,36 @@ interface Message {
 interface SummaryProps {
   summaryData: any
   messages: Message[]
+  onSectionClick?: (sectionName: string) => void
+  isChatbotLoading?: boolean
 }
 
-const Summary: React.FC<SummaryProps> = ({ summaryData, messages }) => {
+const Summary: React.FC<SummaryProps> = ({ summaryData, messages, onSectionClick, isChatbotLoading }) => {
   const [htmlSummary, setHtmlSummary] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
+
+  // Update HTML summary when summaryData changes
+  useEffect(() => {
+    if (summaryData?.htmlSummary) {
+      setHtmlSummary(summaryData.htmlSummary)
+    }
+  }, [summaryData])
+
+  // Handle clicks on clickable sections
+  useEffect(() => {
+    const handleSectionClick = (event: Event) => {
+      const target = event.target as HTMLElement
+      if (target.classList.contains('clickable-section')) {
+        const sectionName = target.getAttribute('data-section')
+        if (sectionName && onSectionClick) {
+          onSectionClick(sectionName)
+        }
+      }
+    }
+
+    document.addEventListener('click', handleSectionClick)
+    return () => document.removeEventListener('click', handleSectionClick)
+  }, [onSectionClick])
 
   const generateSummary = async () => {
     if (messages.length === 0) return
@@ -44,9 +69,17 @@ const Summary: React.FC<SummaryProps> = ({ summaryData, messages }) => {
     }
   }
 
+  // Auto-generate summary only after chatbot finishes responding
   useEffect(() => {
-    generateSummary()
-  }, [messages])
+    if (messages.length > 0 && !summaryData?.htmlSummary && !summaryData?.summaryGenerated && !isChatbotLoading) {
+      // Add a delay to show summary after chatbot response is complete
+      const timer = setTimeout(() => {
+        generateSummary()
+      }, 500) // 500ms delay for better UX
+      
+      return () => clearTimeout(timer)
+    }
+  }, [messages, summaryData, isChatbotLoading])
 
   if (messages.length === 0) {
     return (
@@ -70,12 +103,30 @@ const Summary: React.FC<SummaryProps> = ({ summaryData, messages }) => {
   return (
     <div className="h-full flex flex-col">
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <h3 className="text-lg font-semibold text-gray-900">Conversation Summary</h3>
-        <p className="text-sm text-gray-600">AI-generated lending analysis</p>
+        <h3 className="text-lg font-semibold text-gray-900">
+          {summaryData?.creditRequestId ? 'Credit Memo Analysis' : 'Conversation Summary'}
+        </h3>
+        <p className="text-sm text-gray-600">
+          {summaryData?.creditRequestId 
+            ? `AI-generated analysis for ${summaryData.creditRequestId}` 
+            : 'AI-generated lending analysis'
+          }
+        </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {isLoading ? (
+      <div 
+        className="flex-1 overflow-y-auto"
+        style={{
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#9ca3af #e5e7eb'
+        }}
+      >
+        {isChatbotLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-gray-600">Waiting for response...</span>
+          </div>
+        ) : isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             <span className="ml-2 text-gray-600">Generating summary...</span>

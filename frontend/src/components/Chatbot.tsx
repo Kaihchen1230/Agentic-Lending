@@ -11,12 +11,22 @@ interface ChatbotProps {
 	messages: Message[];
 	setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 	setSummaryData: React.Dispatch<React.SetStateAction<any>>;
+	selectedRequestId?: string;
+	externalInputText?: string;
+	onInputTextChange?: (text: string) => void;
+	chatId: string;
+	setIsChatbotLoading?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const Chatbot: React.FC<ChatbotProps> = ({
 	messages,
 	setMessages,
 	setSummaryData,
+	selectedRequestId,
+	externalInputText,
+	onInputTextChange,
+	chatId,
+	setIsChatbotLoading,
 }) => {
 	const [inputText, setInputText] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
@@ -27,13 +37,31 @@ const Chatbot: React.FC<ChatbotProps> = ({
 		if (messages.length === 0) {
 			const welcomeMessage: Message = {
 				id: '1',
-				text: "Hello! I'm your AI lending assistant. I can help you with loan applications, generate lending memos, and provide financial analysis. How can I assist you today?",
+				text: "Hello! I'm your AI lending assistant. I can help you with loan applications, generate lending memos, and provide financial analysis. You can select a credit request from the list above to get started, or ask me anything about lending. How can I assist you today?",
 				sender: 'agent',
 				timestamp: new Date(),
 			};
 			setMessages([welcomeMessage]);
 		}
 	}, [messages.length, setMessages]);
+
+	// Update input field when a request ID is selected
+	useEffect(() => {
+		if (selectedRequestId) {
+			setInputText(`Continue the work for the credit request ID: ${selectedRequestId}`);
+		}
+	}, [selectedRequestId]);
+
+	// Update input field when external input text is provided
+	useEffect(() => {
+		if (externalInputText) {
+			setInputText(externalInputText);
+			// Clear the external input text after setting it
+			if (onInputTextChange) {
+				onInputTextChange('');
+			}
+		}
+	}, [externalInputText, onInputTextChange]);
 
 	const scrollToBottom = () => {
 		messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -56,6 +84,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
 		setMessages((prev) => [...prev, userMessage]);
 		setInputText('');
 		setIsLoading(true);
+		setIsChatbotLoading?.(true);
 
 		try {
 			const response = await fetch('http://localhost:8000/chat', {
@@ -63,7 +92,10 @@ const Chatbot: React.FC<ChatbotProps> = ({
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ message: inputText }),
+				body: JSON.stringify({ 
+					message: inputText,
+					chatId: chatId 
+				}),
 			});
 
 			if (!response.ok) {
@@ -81,12 +113,24 @@ const Chatbot: React.FC<ChatbotProps> = ({
 
 			setMessages((prev) => [...prev, agentMessage]);
 
-			// Update summary data when agent responds
-			setSummaryData({
-				lastQuery: inputText,
-				lastResponse: data.response,
-				timestamp: new Date(),
-			});
+			// Delay summary update to show after chatbot response
+			setTimeout(() => {
+				// Update summary data when agent responds
+				const summaryData: any = {
+					lastQuery: inputText,
+					lastResponse: data.response,
+					timestamp: new Date(),
+				};
+
+				// If HTML summary is included in the response, add it to summary data
+				if (data.html_summary) {
+					summaryData.htmlSummary = data.html_summary;
+					summaryData.creditRequestId = data.credit_request_id;
+					summaryData.summaryGenerated = data.summary_generated;
+				}
+
+				setSummaryData(summaryData);
+			}, 300); // 300ms delay to show summary after chatbot response
 		} catch (error) {
 			console.error('Error sending message:', error);
 			const errorMessage: Message = {
@@ -98,6 +142,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
 			setMessages((prev) => [...prev, errorMessage]);
 		} finally {
 			setIsLoading(false);
+			setIsChatbotLoading?.(false);
 		}
 	};
 
@@ -129,7 +174,13 @@ const Chatbot: React.FC<ChatbotProps> = ({
 			</div>
 
 			{/* Messages Container */}
-			<div className='flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50'>
+			<div 
+				className='flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50'
+				style={{
+					scrollbarWidth: 'thin',
+					scrollbarColor: '#9ca3af #e5e7eb'
+				}}
+			>
 				{messages.map((message) => (
 					<div
 						key={message.id}
@@ -175,6 +226,13 @@ const Chatbot: React.FC<ChatbotProps> = ({
 
 			{/* Input Container */}
 			<div className='bg-white border-t border-gray-200 p-4'>
+				{selectedRequestId && (
+					<div className='mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md'>
+						<p className='text-sm text-blue-800'>
+							<span className='font-medium'>Working on:</span> {selectedRequestId}
+						</p>
+					</div>
+				)}
 				<div className='flex space-x-3'>
 					<textarea
 						value={inputText}

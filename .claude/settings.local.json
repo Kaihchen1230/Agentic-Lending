@@ -5,7 +5,15 @@
       "Bash(pip install:*)",
       "Bash(mkdir:*)",
       "Bash(find:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(rm:*)",
+      "Bash(python3:*)",
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(npm install:*)",
+      "Bash(grep:*)",
+      "Bash(python:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }
